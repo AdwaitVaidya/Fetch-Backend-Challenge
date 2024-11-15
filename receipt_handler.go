@@ -20,10 +20,8 @@ func processReceipt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	receipt.ID = generateUniqueID()
-	
 	calculator := NewPointsCalculator(&receipt)
 	receipt.PointsAwarded = calculator.CalculatePoints()
-	
 	receipts[receipt.ID] = &receipt
 
 	w.Header().Set("Content-Type", "application/json")
