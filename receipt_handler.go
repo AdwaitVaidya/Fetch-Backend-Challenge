@@ -1,30 +1,45 @@
 package main
 
 import (
-
-    "encoding/json"
-    "net/http"
+	"encoding/json"
+	"net/http"
+	"github.com/gorilla/mux"
 )
 
-func processReceipt(w http.ResponseWriter, r *http.Request){
+func processReceipt(w http.ResponseWriter, r *http.Request) {
+	var receipt Receipt
+	err := json.NewDecoder(r.Body).Decode(&receipt)
+	if err != nil {
+		http.Error(w, "Invalid receipt data", http.StatusBadRequest)
+		return
+	}
 
-    var receipt Receipt
-    err:= json.NewDecoder(r.Body).Decode(&receipt)
-    if err != nil{
+	if !validateReceipt(&receipt) {
+		http.Error(w, "Invalid receipt data", http.StatusBadRequest)
+		return
+	}
 
-        http.Error(w,"Receipt Decode Error", http.StatusBadRequest)
-        return
-    }
+	receipt.ID = generateUniqueID()
+	
+	calculator := NewPointsCalculator(&receipt)
+	receipt.PointsAwarded = calculator.CalculatePoints()
+	
+	receipts[receipt.ID] = &receipt
 
-    if !validateReceipt(&receipt){
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": receipt.ID})
+}
 
-        http.Error(w,"Invalid Receipt Data",http.StatusBadRequest)
-    }
+func getReceiptPoints(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
 
-    receipt.ID = generateUniqueID()
-    receipt[receipt.ID] = &receipt
+	receipt, ok := receipts[id]
+	if !ok {
+		http.Error(w, "Receipt not found", http.StatusNotFound)
+		return
+	}
 
-    receipt.PointsAwarded = calculatePoints(&receipt)
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]string{"id":receipt.ID})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int64{"points": receipt.PointsAwarded})
 }
